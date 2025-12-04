@@ -1,0 +1,82 @@
+[
+  {
+    "id": 1,
+    "name": "אלקטרו מגאדלה בע\"מ",
+    "city": "באקה",
+    "vat_number": "512429234",
+    "phone": "",
+    "address": "",
+    "contact_person": "",
+    "notes": ""
+  },
+  {
+    "id": 2,
+    "name": "הנדסת חשמל גמאל גאזי בע\"מ",
+    "city": "באקה",
+    "vat_number": "513044990",
+    "phone": "",
+    "address": "",
+    "contact_person": "",
+    "notes": ""
+  },
+  {
+    "id": 3,
+    "name": "חומרי בניין",
+    "city": "באקה",
+    "vat_number": "37733292",
+    "phone": "",
+    "address": "",
+    "contact_person": "",
+    "notes": ""
+  },
+  {
+    "id": 4,
+    "name": "חשמל א.מואסי",
+    "city": "באקה",
+    "vat_number": "25906496",
+    "phone": "",
+    "address": "",
+    "contact_person": "",
+    "notes": ""
+  },
+  {
+    "id": 5,
+    "name": "אורפז בע\"מ",
+    "city": "חדרה",
+    "vat_number": "511462624",
+    "phone": "",
+    "address": "",
+    "contact_person": "",
+    "notes": ""
+  },
+  {
+    "id": 6,
+    "name": "אלקטרו בר חשמל בע\"מ",
+    "city": "חדרה",
+    "vat_number": "515089142",
+    "phone": "",
+    "address": "",
+    "contact_person": "",
+    "notes": ""
+  },
+  {
+    "id": 7,
+    "name": "ע.ב. נתיב חשמל ותשתיות בע\"מ",
+    "city": "גת",
+    "vat_number": "510457989",
+    "phone": "",
+    "address": "",
+    "contact_person": "",
+    "notes": ""
+  },
+  {
+    "id": 8,
+    "name": "חשמל וצבע הכפר (חוסאם ותד)",
+    "city": "גת",
+    "vat_number": "23332646",
+    "phone": "",
+    "address": "",
+    "contact_person": "",
+    "notes": ""
+  }
+]

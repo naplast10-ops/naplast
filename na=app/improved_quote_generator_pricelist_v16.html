@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>מחולל הצעת מחיר / מחירון — v16</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+        integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA=="
+        crossorigin="anonymous"
+        referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
+        integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA=="
+        crossorigin="anonymous"
+        referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.19.3/xlsx.full.min.js"></script>
+<style>
+:root { --primary:#2563eb; --primary-contrast:#ffffff; --muted:#6b7280; }
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f3f4f8;min-height:100vh;padding:20px; color:#111827}
+.container{max-width:1400px;margin:0 auto;display:grid;grid-template-columns:minmax(380px,520px) 1fr;gap:20px}
+@media(max-width:1200px){.container{grid-template-columns:1fr}}
+.panel{background:#fff;border-radius:12px;padding:22px;box-shadow:0 8px 22px rgba(0,0,0,.06)}
+h1{color:var(--primary);margin-bottom:14px;text-align:center;font-size:1.5em}
+h2{color:#333;margin:14px 0 8px 0;padding-bottom:6px;border-bottom:2px solid var(--primary);font-size:1.05em}
+.form-group{display:flex;flex-direction:column;margin-bottom:10px}
+label{margin-bottom:6px;color:#555;font-weight:600;font-size:13px}
+input,select,textarea{padding:9px;border:2px solid #e0e0e0;border-radius:6px;font-size:14px;transition:border-color .3s;width:100%}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary)}
+button{padding:8px 12px;border:none;border-radius:6px;font-weight:600;cursor:pointer;transition:.15s}
+.btn{background:var(--primary);color:var(--primary-contrast)}
+.btn:hover{filter:brightness(.96)}
+.btn-danger{background:#ef4444;color:#fff}
+.btn-secondary{background:#6b7280;color:#fff}
+.muted{color:var(--muted);font-size:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.hidden{display:none !important}
+.help{font-size:12px;color:#374151}
+
+/* Themes */
+.themes{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.theme{width:28px;height:28px;border-radius:50%;border:3px solid transparent;cursor:pointer}
+.theme.blue{background:#2563eb}
+.theme.green{background:#10b981}
+.theme.red{background:#ef4444}
+.theme.black{background:#111827}
+.theme.gray{background:#6b7280}
+.theme.active{border-color:#111}
+
+/* Toolbar */
+.toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:10px}
+.lock-wrap{display:flex;gap:8px;align-items:center}
+.lock-indicator{font-size:12px;color:#555}
+
+/* Page */
+.quote-preview{position:relative;background:#fff;width:210mm;min-height:297mm;padding:18mm;box-shadow:0 5px 15px rgba(0,0,0,.1);margin:0 auto;overflow:hidden}
+.logos-layer{position:absolute; top:18mm; left:18mm; right:18mm; bottom:18mm; z-index:1;}
+.text-layer{position:relative; z-index:5; pointer-events:none;}
+
+/* Logos */
+.logo-wrap{position:absolute; top:0; left:0; user-select:none; touch-action:none; cursor:grab; border:1px dashed transparent; border-radius:6px}
+.logo-wrap.active{border-color:var(--primary)}
+.logo-img{display:block; width:200px; height:auto; pointer-events:none; border-radius:6px; opacity:.98}
+.resize-handle{position:absolute; width:16px; height:16px; right:-8px; bottom:-8px; border-radius:50%; background:var(--primary); cursor:nwse-resize; touch-action:none}
+
+/* Draggable sections */
+.movable{position:relative; pointer-events:auto;}
+.drag-handle{position:absolute; top:-12px; left:-12px; background:var(--primary); color:var(--primary-contrast); font-size:11px; padding:4px 6px; border-radius:6px; cursor:grab; user-select:none; touch-action:none}
+.drag-handle:active{cursor:grabbing}
+.only-y{cursor:ns-resize}
+.outline{outline:1px dashed #a0aec0}
+
+/* Header/layout */
+.header-row{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:10px;border-bottom:3px solid var(--primary);margin-top:4px;gap:20px}
+.company-info{flex:1;text-align:right}
+.company-name{font-size:20px;font-weight:700;color:#111827;margin-bottom:6px}
+.company-details{font-size:13px;color:#4b5563;line-height:1.6}
+.title-wrap{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:220px; pointer-events:auto;}
+.title{font-size:36px;font-weight:800;color:var(--primary);line-height:1; pointer-events:auto;}
+.subtitle{font-size:15px;color:#6b7280;margin-top:4px; pointer-events:auto;}
+
+.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+.meta-box{padding:12px;background:#f7fafc;border-radius:8px;border:1px solid #e5e7eb}
+.meta-box h3{color:var(--primary);margin-bottom:8px;font-size:13px}
+
+.items-table{width:100%;border-collapse:collapse;table-layout:fixed;margin:16px 0}
+.items-table th{background:var(--primary);color:var(--primary-contrast);padding:7px 8px;text-align:right;font-size:13px}
+.items-table td{padding:8px;border-bottom:1px solid #e0e0e0;text-align:right;vertical-align:top;word-wrap:break-word;font-size:13px}
+
+.quote-footer{margin-top:16px;padding-top:12px;border-top:2px solid #e0e0e0;font-size:12px;color:#4b5563}
+
+/* Locked preview */
+body.locked .drag-handle, body.locked .resize-handle { display:none !important; }
+body.locked .outline { outline:none !important; }
+body.locked .logo-wrap, body.locked .movable { cursor:default; }
+body.locked .logos-layer, body.locked .movable { pointer-events:none !important; }
+body.locked .lock-indicator::after { content:"— מצב תצוגה נעול"; margin-inline-start:6px; color:#111; }
+
+/* Catalog UI */
+.catalog{display:flex; gap:8px; align-items:center; margin:8px 0 12px 0}
+.catalog input{flex:1}
+.catalog-list{max-height:240px; overflow:auto; border:1px solid #e5e7eb; border-radius:8px; padding:8px}
+.catalog-item{display:flex; justify-content:space-between; align-items:center; padding:6px; border-bottom:1px dashed #eee}
+.catalog-item:last-child{border-bottom:none}
+.catalog-item .meta{font-size:12px; color:#6b7280}
+.badge{display:inline-block; padding:2px 6px; border-radius:999px; background:#eef2ff; color:#3730a3; font-size:11px; margin-inline-start:6px}
+</style>
+</head>
+<body>
+<!-- Embedded data -->
+<script id="clientsData" type="application/json">[{"name": "אלקטרו מגאדלה בע\"מ", "phone": "", "city": "באקה", "region": "", "client_id": "512429234", "address": "", "email": "", "notes": ""}, {"name": "הנדסת חשמל גמאל גאזי בע\"מ", "phone": "", "city": "באקא", "region": "", "client_id": "513044990", "address": "", "email": "", "notes": ""}, {"name": "חשמל א.מואסי", "phone": "", "city": "באקא", "region": "", "client_id": "25906496", "address": "", "email": "", "notes": ""}, {"name": "אורפז בע\"מ", "phone": "", "city": "חדרה", "region": "", "client_id": "511462624", "address": "", "email": "", "notes": ""}, {"name": "אלקטרו בר חשמל בע\"מ", "phone": "", "city": "חדרה", "region": "", "client_id": "515089142", "address": "", "email": "", "notes": ""}, {"name": "אלביארק חשמל ותאורה", "phone": "", "city": "אום אלפחם", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "אלספא חשמל ותאורה בע\"מ", "phone": "", "city": "אום אלפחם", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "מחאגנה אחמד )אלסבאר(", "phone": "", "city": "אום אלפחם", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "נייל אלקטריק מועתסם מחאמיד", "phone": "", "city": "אום אלפחם", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "גאז הום בע\"מ גזמאוי", "phone": "", "city": "ערערה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "אמאנה מערכות בע\"מ", "phone": "", "city": "כפר קרע", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "ענק התאורה בע\"מ", "phone": "", "city": "כפר קרע", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "ליברו לייט בע\"מ", "phone": "", "city": "ברטעה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "חשמל ישיר אור יהודה", "phone": "", "city": "אור יהודה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "ע.ב. נתיב חשמל ותשתיות בע\"מ", "phone": "", "city": "גת", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "חשמל ישיר הרצליה בע\"מ", "phone": "", "city": "הרצליה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "חשמל ישיר הוד השרון-כפר סבא", "phone": "", "city": "כפר סבא", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "יוסי בנין תקשורת בע\"מ יוסי", "phone": "", "city": "כפר סבא", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "א.א סיטונאות חשמל הזולים בשרון", "phone": "", "city": "נתניה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "א.ד.ר אורון גבורי 1987 בע\"מ אופיר", "phone": "", "city": "נתניה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "אור לכל חשמל ותאורה", "phone": "", "city": "נתניה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "אמפריה זאב מ.ש בע\"מ", "phone": "", "city": "נתניה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "דור חדש חומרי חשמל", "phone": "", "city": "נתניה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "פלא יעוץ תאורה וחשמל בע\"מ", "phone": "", "city": "נתניה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "חשמל ישיר השרון ב\"מ", "phone": "", "city": "פתח תקווה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "ה.צ.ח. מוצרי חשמל בע\"מ שוש", "phone": "", "city": "ראשון לציון", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "ראש חשמל רעננה בע\"מ", "phone": "", "city": "רעננה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "האוס אג'נט בע\"מ", "phone": "", "city": "תל אביב", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "חשמל ישיר תל אביב", "phone": "", "city": "תל אביב", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "חשמל אלנור", "phone": "", "city": "כפר קאסם", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "הייתם עבודות ואספקת חשמל", "phone": "", "city": "קלנסווה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "כלבו חשמל לין טייבה", "phone": "", "city": "טייבה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "קליק שירותי חשמל", "phone": "", "city": "טייבה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "ד.ס. אלעאמר גרופ", "phone": "", "city": "טירה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "חשמל העיר מוחמד", "phone": "", "city": "טירה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "חשמל הצפון", "phone": "", "city": "אכסאל", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "סקיי לייטינג - חטיב סלימאן", "phone": "", "city": "אעבלין", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "חשמל אדאם אנד מ לייט בע\"מ", "phone": "", "city": "גדידה מכר", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "רם אספקה בע\"מ", "phone": "", "city": "דאלית אלכרמל", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "יוסף דיב הובלות ומכירת מוצרי", "phone": "", "city": "דבוריה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "טאהא חשמל ותאורה בע\"מ", "phone": "", "city": "דיר אלאסד", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "מרואן נעראני", "phone": "", "city": "זרזיר", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "סל חשמל בע\"מ", "phone": "", "city": "חיפה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "חשמל ישיר", "phone": "", "city": "חיפה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "בית החשמל", "phone": "", "city": "טמרה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "חשמל 2020 בע\"מ", "phone": "", "city": "טמרה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "א.ס. רמאל אביזרי חשמל ותאורה", "phone": "", "city": "ירכא", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "חשמל כאבול", "phone": "", "city": "כאבול", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "קשת הום אלקטריק בע\"מ", "phone": "", "city": "כפר גוליס", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "חשמל ואינסטלציה מנדא", "phone": "", "city": "כפר מנדא", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "א. חשמל כרמיאל בע\"מ", "phone": "", "city": "כרמיאל", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "חשמל חוליו", "phone": "", "city": "כרמיאל", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "אלמיראג תאורה בע\"מ", "phone": "", "city": "מגאר", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "עאדל סרחאן בע\"מ", "phone": "", "city": "מגאר", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "סרחאן חומרי חשמל ותאורה בע\"מ", "phone": "", "city": "מגד אלכרום", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "ל.ל. חסן יבוא ומסחר עמאר", "phone": "", "city": "משהד", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "א.מ.גד חשמל ותקשורת בע\"מ אמגד", "phone": "", "city": "נצרת", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "גרין לייט כיפאח בע\"מ כיפאח", "phone": "", "city": "נצרת", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "וואן לייט חשמל ותאורה אחמד מחאמיד", "phone": "", "city": "נצרת", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "ח'טיב כאזם אחמד", "phone": "", "city": "נצרת", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "חשמל זעאתרה", "phone": "", "city": "נצרת", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "סלטי אחזקות בע\"מ", "phone": "", "city": "נצרת", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "סן לייט לחשמל בע\"מ", "phone": "", "city": "נצרת", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "תמנע מוליכים בע\"מ חסן", "phone": "", "city": "סחנין", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "חאיק נסים", "phone": "", "city": "עיילבון", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "חשמל המרכז אליאס", "phone": "", "city": "עילוט", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "חשמל וורדי הגליל חכם", "phone": "", "city": "עילוט", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "חביב יוסף בע\"מ", "phone": "", "city": "עכו", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "חשמל ישיר", "phone": "", "city": "עפולה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "מראענה תאורה וחשמל", "phone": "", "city": "פוריידיס", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "מראענה מסחר ושיווק בע\"מ", "phone": "", "city": "פוריידיס", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "חשמל ישיר", "phone": "", "city": "קיסריה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "א.ח. זידאן פרימיום", "phone": "", "city": "ריינה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "מור לייט", "phone": "", "city": "ריינה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "א. ענק החשמל איאד", "phone": "", "city": "שפרעם", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "דאמוני תאורה ומסחר בע\"מ", "phone": "", "city": "שפרעם", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "א.מ.ל הנדסת חשמל בע\"מ", "phone": "", "city": "עיספיה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}, {"name": "חשמל סעיד", "phone": "", "city": "סנדלה", "region": "", "client_id": "", "address": "", "email": "", "notes": ""}]</script>
+<script id="productsData" type="application/json">[{"desc": null, "sku": 5002116, "pkg": 62.0}, {"desc": null, "sku": 5002120, "pkg": 62.0}, {"desc": null, "sku": 5002125, "pkg": 62.0}, {"desc": null, "sku": 5002132, "pkg": 105.0}, {"desc": null, "sku": 5002140, "pkg": 170.0}, {"desc": null, "sku": 5002150, "pkg": 175.0}, {"desc": null, "sku": 5002250, "pkg": 175.0}, {"desc": null, "sku": 5003116, "pkg": 82.0}, {"desc": null, "sku": 5004120, "pkg": 82.0}, {"desc": null, "sku": 5005125, "pkg": 82.0}, {"desc": null, "sku": 5006132, "pkg": 160.0}, {"desc": null, "sku": 5007140, "pkg": 260.0}, {"desc": null, "sku": 5003216, "pkg": 82.0}, {"desc": null, "sku": 5004220, "pkg": 82.0}, {"desc": null, "sku": 5005225, "pkg": 82.0}, {"desc": null, "sku": 5003316, "pkg": 82.0}, {"desc": null, "sku": 5004320, "pkg": 82.0}, {"desc": null, "sku": 5005325, "pkg": 82.0}, {"desc": null, "sku": 5003516, "pkg": 82.0}, {"desc": null, "sku": 5004520, "pkg": 82.0}, {"desc": null, "sku": 5005525, "pkg": 82.0}, {"desc": null, "sku": 5006532, "pkg": 82.0}, {"desc": null, "sku": 5004420, "pkg": 82.0}, {"desc": null, "sku": 5005425, "pkg": 82.0}, {"desc": null, "sku": 5004620, "pkg": 82.0}, {"desc": null, "sku": 5005625, "pkg": 82.0}, {"desc": null, "sku": 5006632, "pkg": 160.0}, {"desc": null, "sku": 6006140, "pkg": 100.0}, {"desc": null, "sku": 6006150, "pkg": 110.0}, {"desc": null, "sku": 6006175, "pkg": 160.0}, {"desc": null, "sku": 6006110, "pkg": 170.0}, {"desc": "חישוב לפי מטר", "sku": 6006160, "pkg": 28.0}, {"desc": "חישוב לפי מטר", "sku": 606650, "pkg": 6.2}, {"desc": "חישוב לפי מטר", "sku": 606663, "pkg": 9.8}, {"desc": "חישוב לפי מטר", "sku": 606675, "pkg": 12.5}, {"desc": null, "sku": 500916, "pkg": 52.0}, {"desc": null, "sku": 500920, "pkg": 62.0}, {"desc": null, "sku": 500925, "pkg": 130.0}, {"desc": null, "sku": 500932, "pkg": 180.0}, {"desc": null, "sku": "OM6001", "pkg": 60.0}, {"desc": null, "sku": "OM6002", "pkg": 90.0}, {"desc": null, "sku": "OM6004", "pkg": 105.0}, {"desc": null, "sku": "OM6005", "pkg": 120.0}, {"desc": null, "sku": "OM6007", "pkg": 30.0}, {"desc": null, "sku": "OM6008", "pkg": 140.0}, {"desc": null, "sku": "OM6009", "pkg": 210.0}, {"desc": null, "sku": "OM6010", "pkg": 240.0}, {"desc": null, "sku": "OM6011", "pkg": 320.0}]</script>
+
+<div class="container">
+  <div class="panel">
+    <div class="toolbar">
+      <h1>מחולל הצעת מחיר / מחירון</h1>
+      <div class="lock-wrap">
+        <label><input type="checkbox" id="lockToggle"/> נעילת עריכה</label>
+        <span class="lock-indicator muted">מקש L</span>
+      </div>
+    </div>
+
+    <h2>מצב מסמך</h2>
+    <div class="row">
+      <select id="docMode" style="max-width:260px">
+        <option value="quote" selected>הצעת מחיר</option>
+        <option value="pricelist">מחירון ללקוח קיים</option>
+      </select>
+    </div>
+
+    <h2>ייבוא / צבעים</h2>
+    <div class="row">
+      <input type="file" id="importClients" accept=".xlsx,.xls,.csv,.json"/>
+      <button class="btn-secondary" id="importClientsBtn" type="button">ייבוא לקוחות (XLSX/CSV)</button>
+      <input type="file" id="importProducts" accept=".xlsx,.xls,.csv,.json"/>
+      <button class="btn-secondary" id="importProductsBtn" type="button">ייבוא מוצרים (XLSX/CSV)</button>
+    </div>
+    <p class="help">טיפ: בעמודות מספיק שם דומה (לדוגמה "מק״ט", "sku", "מספר קטלוג").</p>
+    <div class="themes" style="margin-top:8px">
+      <div class="theme blue active"  data-color="#2563eb" title="כחול"></div>
+      <div class="theme green"        data-color="#10b981" title="ירוק"></div>
+      <div class="theme red"          data-color="#ef4444" title="אדום"></div>
+      <div class="theme black"        data-color="#111827" title="שחור"></div>
+      <div class="theme gray"         data-color="#6b7280" title="אפור"></div>
+    </div>
+
+    <h2>לוגואים (ברקע)</h2>
+    <p class="muted">הלוגואים תמיד מאחורי הטקסט. גרור ושנה גודל.</p>
+    <div class="row" style="gap:14px">
+      <div>
+        <div class="form-group"><label>לוגו 1</label><input type="file" id="logo1Input" accept="image/*"/></div>
+        <div class="form-group"><label>רוחב</label><input type="range" id="logo1Width" min="60" max="1200" value="200"/></div>
+        <div class="row">
+          <button class="btn-secondary" id="logo1Reset" type="button">איפוס</button>
+          <button class="btn-danger" id="logo1Remove" type="button">הסר</button>
+        </div>
+      </div>
+      <div>
+        <div class="form-group"><label>לוגו 2</label><input type="file" id="logo2Input" accept="image/*"/></div>
+        <div class="form-group"><label>רוחב</label><input type="range" id="logo2Width" min="60" max="1200" value="200"/></div>
+        <div class="row">
+          <button class="btn-secondary" id="logo2Reset" type="button">איפוס</button>
+          <button class="btn-danger" id="logo2Remove" type="button">הסר</button>
+        </div>
+      </div>
+    </div>
+
+    <h2>פרטי חברה</h2>
+    <div class="form-group"><label>שם החברה</label><input id="companyName" value="נ.מ קאסם פלסט בע״מ"/></div>
+    <div class="form-group"><label>כתובת</label><input id="companyAddress" value="באקא אלגרביה, רח. אלסראט 30100"/></div>
+    <div class="form-group"><label>טלפון</label><input id="companyPhone" value="0505342966"/></div>
+    <div class="form-group"><label>אימייל</label><input id="companyEmail" value="naplast10@gmail.com"/></div>
+    <div class="form-group"><label>ח.פ / ע.מ</label><input id="companyId" value="515396513"/></div>
+
+    <h2>לקוח והצעה</h2>
+    <div class="form-group"><label>שם הלקוח *</label>
+      <div class="row" id="clientPickerRow">
+        <input id="clientName" placeholder="הקלד או בחר מהרשימה..."/>
+        <select id="clientSelect" style="min-width:240px"></select>
+      </div>
+    </div>
+    <div class="form-group"><label>כתובת</label><input id="clientAddress"/></div>
+    <div class="form-group"><label>טלפון</label><input id="clientPhone"/></div>
+    <div class="form-group"><label>אימייל</label><input id="clientEmail"/></div>
+
+    <div class="form-group mode-quote-only"><label>מספר הצעה *</label><input id="quoteNumber"/></div>
+    <div class="form-group"><label>תאריך *</label><input type="date" id="quoteDate"/></div>
+    <div class="form-group mode-quote-only"><label>תוקף (ימים)</label><input type="number" id="validDays" value="30"/></div>
+    <div class="form-group mode-quote-only">
+      <label>תנאי תשלום</label>
+      <select id="paymentTerms">
+        <option value="">בחר...</option>
+        <option>מזומן</option><option>שוטף+30</option><option>שוטף+60</option><option>שוטף+90</option>
+        <option>2 תשלומים</option><option>3 תשלומים</option><option>תשלום מראש</option>
+      </select>
+    </div>
+
+    <h2>מוצרים</h2>
+    <div class="catalog">
+      <input id="catalogSearch" placeholder="חפש מוצר לפי תיאור או מק״ט">
+      <button class="btn-secondary" id="catalogClear">נקה</button>
+      <span class="muted">לחץ "הוסף" כדי להכניס לטבלה</span>
+    </div>
+    <div class="catalog-list" id="catalogList"></div>
+
+    <div id="items"></div>
+    <div class="row" style="margin:12px 0">
+      <button class="btn" id="addItem" type="button">+ שורה ריקה</button>
+      <button class="btn-secondary" id="clearItems" type="button">נקה פריטים</button>
+    </div>
+
+    <h2>הערות ותנאים</h2>
+    <div class="form-group"><textarea id="notes" placeholder="הערות נוספות..."></textarea></div>
+
+    <button class="btn" id="downloadBtn" type="button">הורדת PDF</button>
+  </div>
+
+  <div class="panel">
+    <div class="quote-preview" id="quoteContent">
+      <div class="logos-layer" id="logosLayer">
+        <div id="logo1Wrap" class="logo-wrap" style="display:none; top:0; left:0">
+          <img id="logo1" class="logo-img" alt="Logo 1"/>
+          <div id="logo1Handle" class="resize-handle"></div>
+        </div>
+        <div id="logo2Wrap" class="logo-wrap" style="display:none; top:0; left:220px">
+          <img id="logo2" class="logo-img" alt="Logo 2"/>
+          <div id="logo2Handle" class="resize-handle"></div>
+        </div>
+      </div>
+
+      <div class="text-layer">
+        <div class="movable outline" id="textAll" style="transform:translateY(0px)">
+          <div class="drag-handle only-y" id="textAllHandle">הזז כל הטקסט (למעלה/למטה)</div>
+
+          <div class="header-row">
+            <div class="movable outline" id="secCompany">
+              <div class="drag-handle" id="secCompanyHandle">פרטי חברה</div>
+              <div class="company-info">
+                <div class="company-name" id="companyNameView">נ.מ קאסם פלסט בע״מ</div>
+                <div class="company-details" id="companyDetailsView">
+                  באקא אלגרביה, רח. אלסראט 30100<br/>
+                  טל: 0505342966<br/>
+                  naplast10@gmail.com<br/>
+                  ח.פ: 515396513
+                </div>
+              </div>
+            </div>
+
+            <div class="title-wrap">
+              <div class="movable outline" id="secTitle">
+                <div class="drag-handle" id="secTitleHandle">כותרת מסמך</div>
+                <div class="title" id="quoteTitle">הצעת מחיר</div>
+              </div>
+              <div class="movable outline" id="secNumber">
+                <div class="drag-handle" id="secNumberHandle">שורת משנה</div>
+                <div class="subtitle" id="quoteSub">מס׳ 000001</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="meta-grid">
+            <div class="meta-box" id="offerBox"><h3>פרטי הצעה</h3></div>
+            <div class="meta-box" id="clientBox"><h3>פרטי לקוח</h3></div>
+          </div>
+
+          <table class="items-table">
+            <colgroup>
+              <col style="width:6%">
+              <col style="width:46%">
+              <col style="width:16%">
+              <col style="width:16%">
+              <col style="width:16%">
+            </colgroup>
+            <thead><tr id="itemsHeadRow">
+              <th>#</th><th>תיאור מוצר</th><th>מק״ט</th><th>מחיר חבילה</th><th>מחיר מטר</th>
+            </tr></thead>
+            <tbody id="itemsBody"></tbody>
+          </table>
+
+          <div id="notesBox" class="quote-footer" style="display:none">
+            <h3 style="color:var(--primary);margin-bottom:8px">הערות ותנאים</h3>
+            <p id="notesText" style="white-space:pre-wrap"></p>
+          </div>
+
+          <div class="quote-footer" style="text-align:center;margin-top:14px;border-top:2px solid #e0e0e0;padding-top:10px">
+            <p>תודה על ההזדמנות לעבוד איתכם!</p>
+            <p style="margin-top:6px;color:#9ca3af">מסמך זה נוצר באופן אלקטרוני ותקף ללא חתימה</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = s=>document.querySelector(s);
+const byId = id=>document.getElementById(id);
+
+let CLIENTS = JSON.parse(document.getElementById('clientsData').textContent || '[]');
+let PRODUCTS = JSON.parse(document.getElementById('productsData').textContent || '[]');
+
+/* THEMES */
+document.querySelectorAll('.theme').forEach(el=>{
+  el.addEventListener('click',()=>{
+    document.querySelectorAll('.theme').forEach(t=>t.classList.remove('active'));
+    el.classList.add('active');
+    document.documentElement.style.setProperty('--primary', el.dataset.color);
+  });
+});
+
+/* LOCK PREVIEW */
+const lockToggle = byId('lockToggle');
+lockToggle.addEventListener('change', ()=>{ document.body.classList.toggle('locked', lockToggle.checked); });
+window.addEventListener('keydown', (e)=>{
+  if(e.key.toLowerCase()==='l'){ lockToggle.checked=!lockToggle.checked; document.body.classList.toggle('locked', lockToggle.checked); }
+});
+
+/* MODE TOGGLE */
+const docMode = byId('docMode'); docMode.addEventListener('change', applyMode);
+function applyMode(){
+  const isPriceList = docMode.value==='pricelist';
+  document.querySelectorAll('.mode-quote-only').forEach(el=>el.classList.toggle('hidden', isPriceList));
+  byId('quoteTitle').textContent = isPriceList ? 'מחירון' : 'הצעת מחיר';
+  updatePreview();
+}
+
+/* CLIENT PICKER */
+const clientSelect = byId('clientSelect'); const clientNameInput = byId('clientName');
+function refreshClientOptions(){
+  const opts = ['<option value="">— בחר לקוח —</option>'].concat(
+    CLIENTS.map(c=>`<option value="${c.name}">${c.name}${c.city?(' — '+c.city):''}${c.region?(' ('+c.region+')'):''}</option>`)
+  ).join('');
+  clientSelect.innerHTML = opts;
+}
+clientSelect.addEventListener('change', ()=>{
+  const name = clientSelect.value;
+  clientNameInput.value = name;
+  const c = CLIENTS.find(x=>x.name===name);
+  if(c){ byId('clientAddress').value = c.address||''; byId('clientPhone').value = c.phone||''; byId('clientEmail').value = c.email||''; }
+  updatePreview();
+});
+
+/* IMPORT XLSX/CSV/JSON */
+const importClients = byId('importClients'); const importClientsBtn = byId('importClientsBtn');
+importClientsBtn.addEventListener('click', ()=>importClients.click());
+const importProducts = byId('importProducts'); const importProductsBtn = byId('importProductsBtn');
+importProductsBtn.addEventListener('click', ()=>importProducts.click());
+
+function parseCSV(text){
+  const lines = text.split(/\r?\n/).filter(Boolean);
+  if(!lines.length) return [];
+  const headers = lines.shift().split(',').map(h=>h.trim());
+  return lines.map(line=>{
+    const cells = line.split(',');
+    const obj = {}; headers.forEach((h,i)=> obj[h] = (cells[i]||'').trim()); return obj;
+  });
+}
+function findCol(obj, words){
+  const keys = Object.keys(obj||{});
+  const low = keys.map(k=>k.toLowerCase());
+  for(const w of words){
+    const i = low.findIndex(k=>k.includes(w));
+    if(i!==-1) return keys[i];
+  }
+  return null;
+}
+function normalizeClients(rows){
+  const out=[];
+  rows.forEach(r=>{
+    const name = r[findCol(r,['שם','לקוח','customer','name'])] || '';
+    if(!String(name).trim()) return;
+    const phone = r[findCol(r,['טל','נייד','phone','mobile'])] || '';
+    const city = r[findCol(r,['עיר','יישוב','city'])] || '';
+    const region = r[findCol(r,['אזור','איזור','מחוז','region'])] || '';
+    const client_id = r[findCol(r,['ח"פ','ח.פ','ע.מ','מספר','id','קוד'])] || '';
+    const address = r[findCol(r,['כתובת','רחוב','address'])] || '';
+    const email = r[findCol(r,['מייל','אימייל','email'])] || '';
+    const notes = r[findCol(r,['הערה','הערות','notes'])] || '';
+    out.push({name:String(name).trim(), phone:String(phone).trim(), city:String(city).trim(), region:String(region).trim(), client_id:String(client_id).trim(), address:String(address).trim(), email:String(email).trim(), notes:String(notes).trim()});
+  });
+  const seen = new Set(); const uniq=[];
+  out.forEach(c=>{ const key = c.client_id || c.phone || (c.name+'|'+c.city); if(!seen.has(key)){ seen.add(key); uniq.push(c); } });
+  return uniq;
+}
+function normalizeProducts(rows){
+  const out=[];
+  rows.forEach(r=>{
+    const desc = (r[findCol(r,['תיאור','תאור','מוצר','description','desc','שם מוצר'])] || '').toString().trim();
+    if(!desc) return;
+    if(/^חישוב\s+לפי\s+מטר$/i.test(desc)) return; // filter junk
+    const sku  = (r[findCol(r,['מספר קטלוג','מספר קטלוגי','מק״ט','מק"ט','sku','קוד'])] || '').toString().trim();
+    const pkg  = (r[findCol(r,['מחיר חבילה','חבילה','אריזה','מחיר בסיס','price'])] || '').toString().trim();
+    const mtr  = (r[findCol(r,['מחיר מטר','מטר','meter'])] || '').toString().trim();
+    out.push({desc, sku, pkg, mtr});
+  });
+  return out;
+}
+function handleImport(file, type){
+  const reader = new FileReader();
+  if(file.name.toLowerCase().endswith('.csv')){
+    reader.onload=()=>{ const rows=parseCSV(reader.result); applyImported(rows,type); };
+    reader.readAsText(file);
+  }else if(file.name.toLowerCase().endswith('.json')){
+    reader.onload=()=>{ try{ const rows=JSON.parse(reader.result); applyImported(rows,type); }catch{ alert('JSON לא תקין'); } };
+    reader.readAsText(file);
+  }else{
+    reader.onload=()=>{
+      const data = new Uint8Array(reader.result);
+      const wb = XLSX.read(data,{type:'array'});
+      const name = wb.SheetNames.find(n=> wb.Sheets[n] && XLSX.utils.sheet_to_json(wb.Sheets[n]).length);
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[name]||{});
+      applyImported(rows,type);
+    };
+    reader.readAsArrayBuffer(file);
+  }
+}
+function applyImported(rows, type){
+  if(type==='clients'){
+    CLIENTS = normalizeClients(rows);
+    refreshClientOptions();
+    alert('נטענו '+CLIENTS.length+' לקוחות.');
+  }else{
+    PRODUCTS = normalizeProducts(rows);
+    renderCatalog();
+    alert('נטענו '+PRODUCTS.length+' מוצרים.');
+  }
+}
+importClients.addEventListener('change', e=>{ const f=e.target.files[0]; if(f) handleImport(f,'clients'); e.target.value=''; });
+importProducts.addEventListener('change', e=>{ const f=e.target.files[0]; if(f) handleImport(f,'products'); e.target.value=''; });
+
+/* CATALOG */
+const catalogList = byId('catalogList'); const catalogSearch = byId('catalogSearch'); const catalogClear = byId('catalogClear');
+function renderCatalog(){
+  const term = (catalogSearch.value||'').toLowerCase().trim();
+  const rows = (PRODUCTS||[]).filter(p=>{
+    if(!p || !p.desc) return false;
+    if(/^חישוב\s+לפי\s+מטר$/i.test(p.desc)) return false;
+    const s = (p.desc+' '+(p.sku||'')).toLowerCase();
+    return !term || s.includes(term);
+  }).slice(0,400);
+  catalogList.innerHTML = rows.map((p,i)=>`
+    <div class="catalog-item">
+      <div>
+        <div><strong>${p.desc}</strong>${p.sku?`<span class="badge">${p.sku}</span>`:''}</div>
+        <div class="meta">
+          ${p.pkg?('חבילה: '+p.pkg):''}
+          ${p.mtr?(' · מטר: '+p.mtr):''}
+        </div>
+      </div>
+      <button class="btn" data-idx="${i}">הוסף</button>
+    </div>
+  `).join('');
+  Array.from(catalogList.querySelectorAll('button')).forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const p = rows[parseInt(btn.getAttribute('data-idx'),10)];
+      addItemRow(p);
+    });
+  });
+}
+catalogSearch.addEventListener('input', renderCatalog);
+catalogClear.addEventListener('click', ()=>{ catalogSearch.value=''; renderCatalog(); });
+
+/* BINDINGS */
+['companyName','companyAddress','companyPhone','companyEmail','companyId','clientName','clientAddress','clientPhone','clientEmail','quoteNumber','quoteDate','validDays','paymentTerms','notes'].forEach(id=>byId(id).addEventListener('input',updatePreview));
+function rowsData(){
+  const rows=[];
+  byId('items').querySelectorAll('.row').forEach(row=>{
+    const desc = row.querySelector('.item-desc').value.trim();
+    const sku  = row.querySelector('.item-sku').value.trim();
+    const pkg  = row.querySelector('.item-package').value.trim();
+    const mtr  = row.querySelector('.item-meter').value.trim();
+    if(desc){ rows.push({desc, sku, pkg, mtr}); }
+  });
+  return rows;
+}
+function updatePreview(){
+  const cn = byId('companyName').value||'';
+  const addr = byId('companyAddress').value||'';
+  const phone = byId('companyPhone').value||'';
+  const email = byId('companyEmail').value||'';
+  const compId = byId('companyId').value||'';
+  byId('companyNameView').textContent = cn||'—';
+  byId('companyDetailsView').innerHTML = [addr&&addr+'<br/>', phone&&('טל: '+phone+'<br/>'), email&&(email+'<br/>'), compId&&('ח.פ: '+compId)].filter(Boolean).join('');
+
+  const mode = docMode.value;
+  const qNum = byId('quoteNumber').value||'';
+  const qDate = byId('quoteDate').value;
+  const cln = byId('clientName').value||'';
+  const cla = byId('clientAddress').value||'';
+  const clp = byId('clientPhone').value||'';
+  const cle = byId('clientEmail').value||'';
+  if(mode==='pricelist'){ byId('quoteSub').textContent = cln?('ללקוח: '+cln):''; }
+  else { byId('quoteSub').textContent = qNum?('מס׳ '+qNum):''; }
+
+  const validDays = parseInt(byId('validDays').value||'0');
+  const payment = byId('paymentTerms').value;
+  let validUntilText='';
+  if(qDate && validDays){ const d=new Date(qDate); d.setDate(d.getDate()+validDays); validUntilText=d.toLocaleDateString('he-IL'); }
+  if(mode==='pricelist'){
+    byId('offerBox').innerHTML = `<h3 style="color:var(--primary)">מחירון</h3>`+
+      (qDate?`<p><strong>עודכן בתאריך:</strong> ${new Date(qDate).toLocaleDateString('he-IL')}</p>`:'')+
+      (cln?`<p><strong>לקוח:</strong> ${cln}</p>`:'');
+  }else{
+    byId('offerBox').innerHTML = `<h3 style="color:var(--primary)">פרטי הצעה</h3>`+
+      (qNum?`<p><strong>מספר הצעה:</strong> ${qNum}</p>`:'')+
+      (qDate?`<p><strong>תאריך:</strong> ${new Date(qDate).toLocaleDateString('he-IL')}</p>`:'')+
+      (validUntilText?`<p><strong>תוקף עד:</strong> ${validUntilText}</p>`:'')+
+      (payment?`<p><strong>תנאי תשלום:</strong> ${payment}</p>`:'');
+  }
+  byId('clientBox').innerHTML = `<h3 style="color:var(--primary)">פרטי לקוח</h3>`+
+    (cln?`<p><strong>${cln}</strong></p>`:'')+
+    (cla?`<p>${cla}</p>`:'')+
+    (clp?`<p>טל: ${clp}</p>`:'')+
+    (cle?`<p>${cle}</p>`:'');
+
+  const rows = rowsData();
+  byId('itemsBody').innerHTML = rows.map((r,i)=>`<tr><td>${i+1}</td><td>${r.desc}</td><td>${r.sku||'-'}</td><td>${r.pkg||'-'}</td><td>${r.mtr||'-'}</td></tr>`).join('');
+
+  const notes = byId('notes').value.trim();
+  byId('notesText').textContent = notes;
+  byId('notesBox').style.display = notes? 'block':'none';
+}
+
+/* Items editor */
+byId('addItem').addEventListener('click', ()=> addItemRow());
+byId('clearItems').addEventListener('click', ()=>{ byId('items').innerHTML=''; updatePreview(); });
+function addItemRow(p){
+  const row = document.createElement('div');
+  row.className='row'; row.style.marginBottom='8px';
+  row.innerHTML = `
+    <div class="form-group" style="flex:2;min-width:200px"><label>תיאור</label><input class="item-desc" placeholder="תיאור מוצר" value="${(p&&p.desc)||''}"></div>
+    <div class="form-group" style="flex:1;min-width:120px"><label>מק״ט</label><input class="item-sku" placeholder="מק״ט" value="${(p&&p.sku)||''}"></div>
+    <div class="form-group" style="flex:1;min-width:120px"><label>מחיר חבילה</label><input class="item-package" placeholder="מחיר חבילה" value="${(p&&p.pkg)||''}"></div>
+    <div class="form-group" style="flex:1;min-width:120px"><label>מחיר מטר</label><input class="item-meter" placeholder="מחיר מטר" value="${(p&&p.mtr)||''}"></div>
+    <div class="form-group" style="min-width:80px"><label>&nbsp;</label><button class="btn-danger removeBtn" type="button">מחק</button></div>
+  `;
+  byId('items').appendChild(row);
+  row.querySelectorAll('input').forEach(i=>i.addEventListener('input',updatePreview));
+  row.querySelector('.removeBtn').addEventListener('click',()=>{ row.remove(); updatePreview(); });
+  updatePreview();
+}
+
+/* DRAG HELPERS */
+function pointerDrag({target, onMove, onEnd, lockX=false, lockY=false}){
+  let sx=0, sy=0, moved=false;
+  const start = (ev)=>{
+    if(document.body.classList.contains('locked')) return;
+    ev.preventDefault(); target.setPointerCapture?.(ev.pointerId);
+    sx=ev.clientX; sy=ev.clientY;
+    window.addEventListener('pointermove', move, {passive:false});
+    window.addEventListener('pointerup', end);
+  };
+  const move = (ev)=>{ const dx = lockX?0:(ev.clientX - sx); const dy = lockY?0:(ev.clientY - sy); moved=true; onMove(dx,dy,ev); sx=ev.clientX; sy=ev.clientY; };
+  const end = (ev)=>{ window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); onEnd?.(ev,moved); };
+  target.addEventListener('pointerdown', start);
+}
+const textAll = byId('textAll'); const textAllHandle = byId('textAllHandle');
+pointerDrag({ target:textAllHandle, lockX:true, onMove(dx,dy){
+  const m = /translateY\(([-\d.]+)px\)/.exec(textAll.style.transform||'translateY(0px)');
+  const cur = parseFloat(m?m[1]:0); const ty = Math.max(-50, Math.min(800, cur+dy));
+  textAll.style.transform = `translateY(${ty}px)`;
+}});
+['secCompany','secTitle','secNumber'].forEach(id=>{
+  const el = byId(id); const handle = byId(id+'Handle');
+  el.style.transform = el.style.transform || 'translate(0px,0px)';
+  pointerDrag({ target:handle, onMove(dx,dy){
+    const m = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(el.style.transform||'translate(0,0)');
+    const x = parseFloat(m?m[1]:0); const y = parseFloat(m?m[2]:0);
+    el.style.transform = `translate(${x+dx}px, ${y+dy}px)`;
+  }});
+});
+
+/* LOGOS */
+connectLogo(1); connectLogo(2);
+function connectLogo(n){
+  const wrap=byId('logo'+n+'Wrap'); const img=byId('logo'+n); const handle=byId('logo'+n+'Handle'); const input=byId('logo'+n+'Input'); const slider=byId('logo'+n+'Width'); const layer=byId('logosLayer');
+  function save(){ const left=parseFloat(wrap.style.left||'0'); const top=parseFloat(wrap.style.top||'0'); const w=parseInt(img.style.width||'200')||200; localStorage.setItem('logo'+n, JSON.stringify({src:img.src,left,top,w})); }
+  function applyBounds(){ const overflow=0.5; const maxLeft=layer.clientWidth - wrap.offsetWidth*(1 - overflow); const minLeft=-wrap.offsetWidth*overflow; const maxTop=layer.clientHeight - wrap.offsetHeight*(1 - overflow); const minTop=-wrap.offsetHeight*overflow; let left=parseFloat(wrap.style.left||'0'); let top=parseFloat(wrap.style.top||'0'); left=Math.max(minLeft, Math.min(maxLeft,left)); top=Math.max(minTop, Math.min(maxTop,top)); wrap.style.left=left+'px'; wrap.style.top=top+'px'; }
+  const saved=localStorage.getItem('logo'+n); if(saved){ try{ const s=JSON.parse(saved); if(s.src){img.src=s.src; wrap.style.display='block';} if(typeof s.left==='number') wrap.style.left=s.left+'px'; if(typeof s.top==='number') wrap.style.top=s.top+'px'; if(typeof s.w==='number'){img.style.width=s.w+'px'; if(slider) slider.value=s.w;} }catch{} }
+  if(input){ input.addEventListener('change', e=>{ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=ev=>{ wrap.style.display='block'; img.src=ev.target.result; if(!wrap.style.left) wrap.style.left=(n===1?0:220)+'px'; if(!wrap.style.top) wrap.style.top='0px'; img.style.width=(slider?slider.value:200)+'px'; applyBounds(); save(); }; r.readAsDataURL(f); }); }
+  if(slider){ slider.addEventListener('input', ()=>{ img.style.width=slider.value+'px'; applyBounds(); save(); }); }
+  pointerDrag({ target:wrap, onMove(dx,dy){ wrap.style.left=(parseFloat(wrap.style.left||'0')+dx)+'px'; wrap.style.top=(parseFloat(wrap.style.top||'0')+dy)+'px'; applyBounds(); save(); }});
+  pointerDrag({ target:handle, onMove(dx,dy){ const w=Math.max(60, Math.min(1200, (parseInt(img.style.width||'200')||200)+dx)); img.style.width=w+'px'; applyBounds(); save(); }});
+  window.addEventListener('resize', applyBounds); setTimeout(applyBounds,0);
+}
+
+/* INIT */
+function initEmbedded(){
+  PRODUCTS = (PRODUCTS||[]).filter(p=>p && p.desc && !/^חישוב\s+לפי\s+מטר$/i.test(p.desc));
+  refreshClientOptions();
+  renderCatalog();
+}
+window.addEventListener('load', ()=>{
+  const lastNumber = localStorage.getItem('lastQuoteNumber') || '0';
+  byId('quoteNumber').value = String(parseInt(lastNumber)+1).padStart(6,'0');
+  byId('quoteDate').valueAsDate = new Date();
+  addItemRow();
+  applyMode();
+  updatePreview();
+  initEmbedded();
+});
+
+/* PDF */
+byId('downloadBtn').addEventListener('click', async ()=>{
+  const mode = docMode.value;
+  const companyName = byId('companyName').value;
+  const clientName = byId('clientName').value;
+  const quoteNumber = byId('quoteNumber').value;
+  if(!companyName || !clientName){ alert('נא למלא: שם חברה ושם לקוח.'); return; }
+  if(mode==='quote' && !quoteNumber){ alert('במצב הצעת מחיר יש למלא מספר הצעה.'); return; }
+  if(mode==='quote') localStorage.setItem('lastQuoteNumber', quoteNumber);
+  const el = byId('quoteContent');
+  try{
+    const canvas = await html2canvas(el,{scale:2,useCORS:true,allowTaint:true,backgroundColor:'#ffffff'});
+    const imgData = canvas.toDataURL('image/jpeg',0.95);
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p','mm','a4');
+    const imgWidth = 210;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    pdf.addImage(imgData,'JPEG',0,0,imgWidth,imgHeight);
+    const filename = mode==='pricelist' ? `מחירון-${clientName}.pdf` : `הצעת-מחיר-${quoteNumber}.pdf`;
+    pdf.save(filename);
+  }catch(err){ console.error(err); alert('אירעה שגיאה ביצירת ה-PDF'); }
+});
+</script>
+</body>
+</html>
